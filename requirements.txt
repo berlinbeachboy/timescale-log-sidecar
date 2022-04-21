@@ -1,0 +1,2 @@
+asyncpg==0.25.0
+tenacity==8.0.1
