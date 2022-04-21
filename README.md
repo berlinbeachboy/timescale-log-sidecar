@@ -59,6 +59,7 @@ which does not have all privileges.
 The `/start.sh` would also be the entrypoint for any Docker container.
 Currently working on getting this up on Docker hub.
 
+
 ## Credits
 
-Heavily inspired by this blog
+Heavily inspired by this blog [entry](https://www.komu.engineer/blogs/timescaledb/timescaledb-for-logs).
