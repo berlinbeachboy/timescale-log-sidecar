@@ -84,7 +84,7 @@ create_user_and_give_permission() {
   echo "Made User ${LOG_DB_USER} and gave permissions on tables ${ACCESS_LOG_TABLE} and ${APPLICATION_LOG_TABLE}"
 }
 
-#create_extension
+#create_extension # Uncomment if you don't have timescaledb installed
 create_access_log_table
 create_application_log_table
 create_access_table_indices
