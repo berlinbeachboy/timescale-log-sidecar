@@ -11,7 +11,7 @@ RUN apt-get update \
 
 # Get and install logging sidecar
 RUN mkdir -p /log-sidecar
-RUN wget https://github.com/berlinbeachboy/timescale-log-sidecar/archive/refs/tags/v0.0.1-alpha.1.zip && \
+RUN wget https://github.com/berlinbeachboy/timescale-log-sidecar/archive/refs/tags/v0.0.1-alpha.1.tar.gz && \
     tar -xvf v0.0.1-alpha.1.tar.gz && \
     cp timescale-log-sidecar-0.0.1-alpha.1/* /log-sidecar/ &&\
     rm v0.0.1-alpha.1.tar.gz && \
