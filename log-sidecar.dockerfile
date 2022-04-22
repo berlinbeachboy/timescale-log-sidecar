@@ -15,7 +15,7 @@ RUN wget https://github.com/berlinbeachboy/timescale-log-sidecar/archive/refs/ta
     tar -xvf v0.0.1-alpha.2.tar.gz && \
     cp timescale-log-sidecar-0.0.1-alpha.2/* /log-sidecar/ &&\
     rm v0.0.1-alpha.2.tar.gz && \
-    rm -r timescale-log-sidecar-0.0.2-alpha.2
+    rm -r timescale-log-sidecar-0.0.1-alpha.2
 
 WORKDIR /log-sidecar/
 
