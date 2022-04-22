@@ -20,8 +20,8 @@ wait_seconds = 1
 )
 async def init() -> None:
     host = os.environ.get("POSTGRES_HOST")
-    user = os.environ.get("POSTGRES_USER")
-    password = os.environ.get("POSTGRES_PASSWORD")
+    user = os.environ.get("LOG_DB_USER")
+    password = os.environ.get("LOG_DB_PASSWORD")
     db = os.environ.get("POSTGRES_DB")
     try:
         conn = await asyncpg.connect(
