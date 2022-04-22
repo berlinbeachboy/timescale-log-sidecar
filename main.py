@@ -9,11 +9,15 @@ from typing import List
 import asyncpg
 import datetime
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+log_level = os.environ.get("SIDECAR_LOG_LEVEL") if "SIDECAR_LOG_LEVEL" in os.environ else logging.WARN
+logging.basicConfig(level=log_level)
+logger = logging.getLogger("sidecar")
 
 FIFO_PATH = os.environ.get("NAMED_PIPE_FOLDER") + "/" + os.environ.get("NAMED_PIPE_FILE")
-SENDING_INTERVAL = os.environ.get("SENDING_INTERVAL") if "SENDING_INTERVAL" in os.environ else 5
+SENDING_INTERVAL = int(os.environ.get("SENDING_INTERVAL")) if "SENDING_INTERVAL" in os.environ else 5
+logger.debug(f"LOG LEVEL set to debug")
+logger.debug(f"FIFO PATH: {FIFO_PATH}")
+logger.debug(f"SENDING INTERVALL : {str(SENDING_INTERVAL)}")
 
 class Buffer:
     """ The Buffer with a lock that contains the read lines.
@@ -135,13 +139,18 @@ async def send_logs_to_db(logs: List[dict]):
             if not "type" in i:
                 continue
             if i["type"].lower() == "access":
-                access_logs.append(prep_access_log(log=i))
+                prepped_log = prep_access_log(log=i)
+                logger.debug(prepped_log)
+                access_logs.append(prepped_log)
             elif i["type"].lower() == "application":
-                application_logs.append(prep_application_log(log=i))
+                prepped_log = prep_application_log(log=i)
+                logger.debug(prepped_log)
+                application_logs.append(prepped_log)
             else:
                 logger.info("Cannot send logs other than type access or application")
         await send_access_logs(con, access_logs)
         await send_application_logs(con, application_logs)
+        logger.debug(f"sent {len(logs)} logs")
         await con.close()
     except Exception as e:
         logger.error(e)
@@ -210,6 +219,7 @@ async def collect_logs(buffered_logs):
                     continue
                 log = json.loads(data)
                 if log:
+                    logger.debug("Collected a log")
                     # buffer log events in memory
                     async with buffered_logs.lock:
                         buffered_logs.buf.append(log)
@@ -218,6 +228,7 @@ async def collect_logs(buffered_logs):
 
 
 async def main():
+
     buffered_logs = Buffer(SENDING_INTERVAL)
     return await asyncio.gather(collect_logs(buffered_logs), schedule_log_sending(buffered_logs))
 
