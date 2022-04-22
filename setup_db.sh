@@ -54,12 +54,11 @@ create_application_table_indices() {
 
 create_hypertables() {
     psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
-    -c "SELECT create_hypertable('${ACCESS_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '1 Month');"
+    -c "SELECT create_hypertable('${ACCESS_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '${PARTITIONING_INTERVAL}');"
 
     psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
-    -c "SELECT create_hypertable('${APPLICATION_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '1 Month');"
+    -c "SELECT create_hypertable('${APPLICATION_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '${PARTITIONING_INTERVAL}');"
 }
-
 
 create_user_and_give_permission() {
   psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c \
@@ -73,7 +72,7 @@ create_user_and_give_permission() {
 
         RAISE NOTICE 'Role ${LOG_DB_USER} already exists. Skipping.';
      ELSE
-        CREATE ROLE ${LOG_DB_USER} LOGIN PASSWORD '${LOG_DB_PASSWORD}';
+        CREATE ROLE ${LOG_DB_USER} with LOGIN ENCRYPTED PASSWORD '${LOG_DB_PASSWORD}';
      END IF;
   END
   \$do\$;

@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  log-sidecar:
+      container_name: log-sidecar
+      command: /log-sidecar/start.sh
+      build:
+        context: .
+        dockerfile: ./log-sidecar.dockerfile
+      env_file:
+        - ./.env
+      environment:
+        SETUP_DB: "${SETUP_DB:-0}"
+      volumes:
+        - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
