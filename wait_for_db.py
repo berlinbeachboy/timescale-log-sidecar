@@ -22,7 +22,7 @@ async def init() -> None:
     host = os.environ.get("POSTGRES_HOST")
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
-    db = os.environ.get("POSTGRES_DB")
+    db = "postgres"
     try:
         conn = await asyncpg.connect(
             host=host,

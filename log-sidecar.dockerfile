@@ -5,17 +5,17 @@ ENV PYTHONBUFFERED 1
 
 # install system dependencies
 RUN apt-get update \
-  && apt-get -y install postgresql-client wget \
+  && apt-get -y install postgresql-client wget grep \
   && apt-get clean
 
 
 # Get and install logging sidecar
 RUN mkdir -p /log-sidecar
-RUN wget https://github.com/berlinbeachboy/timescale-log-sidecar/archive/refs/tags/v0.0.1-alpha.2.tar.gz && \
-    tar -xvf v0.0.1-alpha.2.tar.gz && \
-    cp timescale-log-sidecar-0.0.1-alpha.2/* /log-sidecar/ &&\
-    rm v0.0.1-alpha.2.tar.gz && \
-    rm -r timescale-log-sidecar-0.0.1-alpha.2
+RUN wget https://github.com/berlinbeachboy/timescale-log-sidecar/archive/refs/tags/v0.0.1-alpha.3.tar.gz && \
+    tar -xvf v0.0.1-alpha.3.tar.gz && \
+    cp timescale-log-sidecar-0.0.1-alpha.3/* /log-sidecar/ &&\
+    rm v0.0.1-alpha.3.tar.gz && \
+    rm -r timescale-log-sidecar-0.0.1-alpha.3
 
 WORKDIR /log-sidecar/
 

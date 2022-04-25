@@ -2,6 +2,11 @@
 
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
+create_db() {
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -tc "SELECT 1 FROM pg_database WHERE datname = '${POSTGRES_DB}'" \
+  | grep -q 1 || psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c "CREATE DATABASE ${POSTGRES_DB}"
+}
+
 create_extension() {
      psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"
 }
@@ -84,6 +89,8 @@ create_user_and_give_permission() {
 }
 
 #create_extension # Uncomment if you don't have timescaledb installed
+
+create_db
 create_access_log_table
 create_application_log_table
 create_access_table_indices
