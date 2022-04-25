@@ -66,7 +66,7 @@ create_hypertables() {
 }
 
 create_user_and_give_permission() {
-  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c \
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c \
   """
   DO
   \$do\$
