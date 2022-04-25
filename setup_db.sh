@@ -3,8 +3,8 @@
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
 create_db() {
-  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -tc "SELECT 1 FROM pg_database WHERE datname = '${LOG_DB}'" \
-  | grep -q 1 || psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c "CREATE DATABASE ${LOG_DB}"
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -tc "SELECT 1 FROM pg_database WHERE datname = '${LOG_DB}';" \
+  | grep -q 1 || psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE DATABASE ${LOG_DB};"
 }
 
 create_extension() {
