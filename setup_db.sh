@@ -3,16 +3,16 @@
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
 create_db() {
-  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -tc "SELECT 1 FROM pg_database WHERE datname = '${POSTGRES_DB}'" \
-  | grep -q 1 || psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c "CREATE DATABASE ${POSTGRES_DB}"
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -tc "SELECT 1 FROM pg_database WHERE datname = '${LOG_DB}'" \
+  | grep -q 1 || psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" -c "CREATE DATABASE ${LOG_DB}"
 }
 
 create_extension() {
-     psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"
+     psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"
 }
 
 create_access_log_table() {
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE TABLE IF NOT EXISTS ${ACCESS_LOG_TABLE} (
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE TABLE IF NOT EXISTS ${ACCESS_LOG_TABLE} (
     time                   TIMESTAMP         NOT NULL,
     application_name       VARCHAR(20)       NOT NULL,
     environment_name       VARCHAR(10)       NOT NULL,
@@ -30,7 +30,7 @@ create_access_log_table() {
 }
 
 create_application_log_table() {
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE TABLE IF NOT EXISTS ${APPLICATION_LOG_TABLE} (
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE TABLE IF NOT EXISTS ${APPLICATION_LOG_TABLE} (
     time                   TIMESTAMP         NOT NULL,
     application_name       VARCHAR(20)       NOT NULL,
     environment_name       VARCHAR(10)       NOT NULL,
@@ -47,21 +47,21 @@ create_application_log_table() {
 
 create_access_table_indices() {
 
-    #psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE INDEX idxgin ON ${ACCESS_LOG_TABLE} USING GIN (data);"
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE INDEX ON ${ACCESS_LOG_TABLE} (request_path, trace_id, time DESC) WHERE request_path IS NOT NULL AND trace_id IS NOT NULL;"
+    #psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE INDEX idxgin ON ${ACCESS_LOG_TABLE} USING GIN (data);"
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE INDEX ON ${ACCESS_LOG_TABLE} (request_path, trace_id, time DESC) WHERE request_path IS NOT NULL AND trace_id IS NOT NULL;"
 }
 
 create_application_table_indices() {
 
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "CREATE INDEX ON ${APPLICATION_LOG_TABLE} (level, trace_id, time DESC) WHERE level IS NOT NULL AND trace_id IS NOT NULL;"
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "CREATE INDEX ON ${APPLICATION_LOG_TABLE} (level, trace_id, time DESC) WHERE level IS NOT NULL AND trace_id IS NOT NULL;"
 }
 
 
 create_hypertables() {
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" \
     -c "SELECT create_hypertable('${ACCESS_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '${PARTITIONING_INTERVAL}');"
 
-    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" \
+    psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" \
     -c "SELECT create_hypertable('${APPLICATION_LOG_TABLE}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '${PARTITIONING_INTERVAL}');"
 }
 
@@ -83,8 +83,8 @@ create_user_and_give_permission() {
   \$do\$;
   """
 
-  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "GRANT INSERT, UPDATE, SELECT ON TABLE ${ACCESS_LOG_TABLE} TO ${LOG_DB_USER};"
-  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${POSTGRES_DB}" -c "GRANT INSERT, UPDATE, SELECT ON TABLE ${APPLICATION_LOG_TABLE} TO ${LOG_DB_USER};"
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "GRANT INSERT, UPDATE, SELECT ON TABLE ${ACCESS_LOG_TABLE} TO ${LOG_DB_USER};"
+  psql -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}" "${LOG_DB}" -c "GRANT INSERT, UPDATE, SELECT ON TABLE ${APPLICATION_LOG_TABLE} TO ${LOG_DB_USER};"
   echo "Made User ${LOG_DB_USER} and gave permissions on tables ${ACCESS_LOG_TABLE} and ${APPLICATION_LOG_TABLE}"
 }
 

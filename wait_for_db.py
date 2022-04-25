@@ -22,7 +22,7 @@ async def init() -> None:
     host = os.environ.get("POSTGRES_HOST")
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
-    db = "postgres"
+    db = os.environ.get("LOG_DB")
     try:
         conn = await asyncpg.connect(
             host=host,
@@ -37,7 +37,30 @@ async def init() -> None:
 
     except Exception as e:
         logger.error(e)
-        raise e
+
+        # The followeing block is for setup purposes, if the LOG_DB_USER does not yet exist
+        # POSTGRES_USER is supposed to be the superuser of the db such as 'postgres'
+        try:
+            user = os.environ.get("POSTGRES_USER")
+            password = os.environ.get("POSTGRES_PASSWORD")
+            db = os.environ.get("POSTGRES_DB")
+
+            conn = await asyncpg.connect(
+                host=host,
+                port=5432,
+                user=user,
+                password=password,
+                database=db,
+                timeout=6.0,
+                command_timeout=8.0,
+            )
+            await conn.execute("SELECT 1")
+
+        except Exception as e:
+            logger.error(e)
+            raise e
+        else:
+            await conn.close()
 
     else:
         await conn.close()
