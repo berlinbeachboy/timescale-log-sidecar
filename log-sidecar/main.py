@@ -9,15 +9,17 @@ from typing import List
 import asyncpg
 import datetime
 
-log_level = os.environ.get("SIDECAR_LOG_LEVEL") if "SIDECAR_LOG_LEVEL" in os.environ else logging.WARN
+log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
 logging.basicConfig(level=log_level)
 logger = logging.getLogger("sidecar")
 
 FIFO_PATH = os.environ.get("NAMED_PIPE_FOLDER") + "/" + os.environ.get("NAMED_PIPE_FILE")
-SENDING_INTERVAL = int(os.environ.get("SENDING_INTERVAL")) if "SENDING_INTERVAL" in os.environ else 5
+SENDING_INTERVAL = int(os.environ.get("SENDING_INTERVAL", 5))
 logger.debug(f"LOG LEVEL set to debug")
 logger.debug(f"FIFO PATH: {FIFO_PATH}")
 logger.debug(f"SENDING INTERVALL : {str(SENDING_INTERVAL)}")
+
+db_timeout = os.environ.get("DB_TIMEOUT", 8.0)
 
 class Buffer:
     """ The Buffer with a lock that contains the read lines.
@@ -33,20 +35,24 @@ class Buffer:
 
 
 def prep_access_log(log: dict):
+    """This function takes the read log dict and outputs an access_log formatted tuple.
+    The tuple is ready for injecting to db with asyncpg"""
+
     if not "time" in log or not log["time"]:
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"] if "application_name" in log and log["application_name"] else "unknown"
-    environment_name = log["environment_name"] if "environment_name" in log and log["environment_name"] else "unknown"
+    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
+    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
     remote_ip_address = log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] else "unknown"
-    username = log["username"] if "username" in log and log["username"] else "unknown"
-    request_method = log["request_method"] if "request_method" in log and log["request_method"] else "unknown"
+    username = log["username"][:49] if "username" in log and log["username"] else "unknown"
+    request_method = log["request_method"][:6] if "request_method" in log and log["request_method"] else "unknown"
     request_path = log["request_path"] if "request_path" in log and log["request_path"] else "unknown"
     response_status = log["response_status"] if "response_status" in log and log["response_status"] else "unknown"
-    duration = log["duration"] if "duration" in log and log["duration"] else 0
+    response_size = int(log["response_size"]) if "response_size" in log and log["response_size"] else 0
+    duration = float(log["duration"]) if "duration" in log and log["duration"] else 0
     data = log.get("data")
     if data:
         data = json.dumps(data)
@@ -60,22 +66,26 @@ def prep_access_log(log: dict):
             request_method,
             request_path,
             response_status,
+            response_size,
             duration,
             data
             )
 
 def prep_application_log(log: dict):
+    """This function takes the read log dict and outputs an application_log formatted tuple.
+        The tuple is ready for injecting to db with asyncpg"""
+
     if not "time" in log or not log["time"]:
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"] if "application_name" in log and log["application_name"] else "unknown"
-    environment_name = log["environment_name"] if "environment_name" in log and log["environment_name"] else "unknown"
+    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
+    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
     level = log["level"] if "level" in log and log["level"] else "unknown"
     file_path = log["file_path"] if "file_path" in log and log["file_path"] else "unknown"
-    username = log["username"] if "username" in log and log["username"] else "unknown"
+    username = log["username"][:49] if "username" in log and log["username"] else "unknown"
     message = log["message"] if "message" in log and log["message"] else ""
     data = log.get("data")
     if data:
@@ -93,19 +103,19 @@ def prep_application_log(log: dict):
             )
 
 async def send_access_logs(con, access_logs):
-    table_name = os.environ.get("ACCESS_LOG_TABLE")
+    table_name = os.environ.get("ACCESS_LOG_TABLE", 'access_logs')
     await con.executemany(
         f"""
         INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, remote_ip_address, username, request_method, 
-        request_path, response_status, duration, data)
-                  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        request_path, response_status, response_size, duration, data)
+                  VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """,
         access_logs,
         timeout=8.0,
     )
 
 async def send_application_logs(con, app_logs):
-    table_name = os.environ.get("APPLICATION_LOG_TABLE")
+    table_name = os.environ.get("APPLICATION_LOG_TABLE", 'application_logs')
     await con.executemany(
         f"""
         INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, username, level, 
@@ -119,20 +129,21 @@ async def send_application_logs(con, app_logs):
 
 async def send_logs_to_db(logs: List[dict]):
     host = os.environ.get("POSTGRES_HOST")
+    port = os.environ.get("POSTGRES_PORT", 5432)
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
-    database = os.environ.get("LOG_DB")
+    database = os.environ.get("POSTGRES_DB")
     try:
         con = await asyncpg.connect(
             host=host,
-            port=5432,
+            port=port,
             user=user,
             password=password,
             database=database,
             timeout=6.0,
             command_timeout=8.0,
         )
-
+        logger.debug(f"Connected with host {host}, user {user}, db {database}")
         access_logs = []
         application_logs = []
         for i in logs:
@@ -149,8 +160,9 @@ async def send_logs_to_db(logs: List[dict]):
             else:
                 logger.info("Cannot send logs other than type access or application")
         await send_access_logs(con, access_logs)
+        logger.debug(f"sent {len(access_logs)} access_logs")
         await send_application_logs(con, application_logs)
-        logger.debug(f"sent {len(logs)} logs")
+        logger.debug(f"sent {len(application_logs)} application_logs")
         await con.close()
     except Exception as e:
         logger.error(e)
@@ -210,6 +222,7 @@ class PIPE:
 
 
 async def collect_logs(buffered_logs):
+    """Function that keeps running and collects logs from the named pipe"""
     async with PIPE() as pipe:
         while True:
             try:
@@ -228,7 +241,6 @@ async def collect_logs(buffered_logs):
 
 
 async def main():
-
     buffered_logs = Buffer(SENDING_INTERVAL)
     return await asyncio.gather(collect_logs(buffered_logs), schedule_log_sending(buffered_logs))
 

@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+
+  log-sidecar:
+      container_name: log-sidecar
+      command: python start.py
+      init: true
+      build:
+        context: ./log-sidecar
+        dockerfile: Dockerfile
+      env_file:
+        - ./.env
+      volumes:
+        - ./log-sidecar/:/log-sidecar
+        - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
+
+  test-api:
+    container_name: test-api
+    command: uvicorn --reload --host 0.0.0.0 --port 8000 --log-level info main:fastapi
+    init: true
+    build:
+      context: ./test-api
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - ./test-api/:/test-api
+      - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
+
+  db:
+    container_name: ts_db
+    image: timescale/timescaledb:2.7.0-pg14
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+
+volumes:
+    postgres_data:
