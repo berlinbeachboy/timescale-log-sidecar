@@ -42,6 +42,8 @@ async def db_con() -> AsyncGenerator:
             timeout=6.0,
             command_timeout=8.0,
         )
+        await con.execute(f"TRUNCATE TABLE {acc_table_name};")
+        await con.execute(f"TRUNCATE TABLE {app_table_name};")
         yield con
         await con.execute(f"TRUNCATE TABLE {acc_table_name};")
         await con.execute(f"TRUNCATE TABLE {app_table_name};")

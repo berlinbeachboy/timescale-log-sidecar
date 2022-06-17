@@ -11,6 +11,7 @@ pytestmark = pytest.mark.asyncio
 async def test_hello_endpoint(
     client: AsyncClient, db_con: Connection
 ) -> None:
+    """ WARNING: AFTER RUNNING TESTS THE DB WILL BE TRUNCATED!!! """
     r = await client.get(
         f"/log_hello",
     )

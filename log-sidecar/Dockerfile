@@ -8,7 +8,6 @@ RUN apt-get update \
   && apt-get -y install postgresql-client wget grep \
   && apt-get clean
 
-
 # Get and install logging sidecar
 RUN mkdir -p /log-sidecar
 

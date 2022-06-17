@@ -2,7 +2,7 @@ version: '3.8'
 services:
   log-sidecar:
       container_name: log-sidecar
-      command: /log-sidecar/start.sh
+      command: python start.py
       init: true
       build:
         context: .log-sidecar
