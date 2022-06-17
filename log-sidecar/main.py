@@ -132,7 +132,7 @@ async def send_logs_to_db(logs: List[dict]):
     port = os.environ.get("POSTGRES_PORT", 5432)
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
-    database = os.environ.get("POSTGRES_DB")
+    database = os.environ.get("LOG_DB")
     try:
         con = await asyncpg.connect(
             host=host,

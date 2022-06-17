@@ -21,3 +21,5 @@ RUN pip install -r requirements.txt
 COPY . /log-sidecar
 
 ENV PYTHONPATH=/log-sidecar
+
+CMD [ "python", "./start.py"]

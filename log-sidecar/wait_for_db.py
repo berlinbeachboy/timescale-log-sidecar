@@ -44,5 +44,5 @@ async def init() -> None:
         raise e
 
     else:
-        print("SELECT successful")
+        logger.debug("Initial SELECT successful.")
         await conn.close()

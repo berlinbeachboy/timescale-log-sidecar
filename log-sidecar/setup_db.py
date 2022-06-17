@@ -95,6 +95,10 @@ async def give_user_permission(con: Connection, table_name: str, user: str) -> b
 
 
 async def setup_db() -> None:
+    """ When setting up DB the POSTGRES_DB variable is used to indicate the database name.
+    This is because it is a fixed env variable for the postgres/timescale container.
+    When running, use the LOG_DB variable, so that the actual application can have its own postgres"""
+
     host = os.environ.get("POSTGRES_HOST")
     port = os.environ.get("POSTGRES_PORT", 5432)
     superuser = os.environ.get("POSTGRES_USER")

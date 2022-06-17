@@ -3,7 +3,6 @@ services:
 
   log-sidecar:
       container_name: log-sidecar
-      command: python start.py
       init: true
       build:
         context: ./log-sidecar
