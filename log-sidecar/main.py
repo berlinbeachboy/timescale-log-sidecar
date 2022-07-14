@@ -48,7 +48,7 @@ def prep_access_log(log: dict):
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
     remote_ip_address = log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] else "unknown"
     username = log["username"][:49] if "username" in log and log["username"] else "unknown"
-    request_method = log["request_method"][:6] if "request_method" in log and log["request_method"] else "unknown"
+    request_method = log["request_method"][:7] if "request_method" in log and log["request_method"] else "unknown"
     request_path = log["request_path"] if "request_path" in log and log["request_path"] else "unknown"
     response_status = log["response_status"] if "response_status" in log and log["response_status"] else "unknown"
     response_size = int(log["response_size"]) if "response_size" in log and log["response_size"] else 0
