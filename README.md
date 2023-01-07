@@ -4,9 +4,10 @@ A sidecar container collecting access &amp; application logs via a named pipe an
 ## What does it do
 
 This application is supposed to run as a sidecar container (on same host / pod) to another application, supposedly an API.
-An example on how too use this is given in the `test-api` folder which also includes tests.
+An example on how to use this is given in the `test-api` folder which also includes tests.
 
-The application send logs to a named pipe specified in the environment variables.
+The application/api whose logs you want to collect, needs to send logs in JSON format to a named FIFO pipe 
+which is specified in the environment variables.
 This container reads the logs and sends them to a Postgres / Timescale using asyncpg.
 
 There are two tables this can send data to:
@@ -46,12 +47,17 @@ CREATE TABLE IF NOT EXISTS ${APPLICATION_LOG_TABLE} (
     PRIMARY KEY(time, trace_id));
 ```
 
+Unfortunately, right now there is no (non-coding) way to consider custom fields or DB columns.
+JSON key/value other than the ones fitting the tables above are currently disregarded.
+Feel free to fork this and adapt it to fit your needs.
+
 ## Getting started
 
-Ensure there is an accessible TimescaleDB running and set the environment variables.
+Ensure there is an accessible TimescaleDB running and set the environment variables accordingly.
 An overview which environment variables are needed is given in `.env.example`.
 
-The setup needs to be run as postgres superuser, i.e `POSTGRES_USER`. Once it's setup you should only use the `LOG_DB_USER` user 
+The setup needs to be run as postgres superuser, i.e `POSTGRES_USER`. 
+Once it's setup you should only use the `LOG_DB_USER` user 
 which does not have all privileges.
 
 The `log-sidecar/start.py` would also be the entrypoint for any Docker container.
@@ -66,7 +72,8 @@ Please ensure you're using this locally/in DEV only.
 docker-compose -f docker-compose.test.yml up --build
 ```
 will start your testing environment.
-You can then enter the container and start the tests with pytest in `api_tests`.py.
+Make sure you setup the DB when starting the first time by setting `SETUP_DB` to 1 in your `.env` file.
+You can then enter the container and start the tests with pytest in the test-api directory.
 
 ## Credits
 

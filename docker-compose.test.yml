@@ -3,6 +3,7 @@ services:
 
   log-sidecar:
       container_name: log-sidecar
+      command: python start.py
       init: true
       build:
         context: ./log-sidecar
@@ -27,7 +28,7 @@ services:
       - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
 
   db:
-    container_name: ts_db
+    container_name: postgres_ts_db
     image: timescale/timescaledb:2.9.1-pg14
     restart: always
     volumes:

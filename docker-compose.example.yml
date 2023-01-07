@@ -5,7 +5,7 @@ services:
       command: python start.py
       init: true
       build:
-        context: .log-sidecar
+        context: ./log-sidecar
         dockerfile: Dockerfile
       env_file:
         - ./.env

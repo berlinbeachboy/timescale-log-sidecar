@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse
 
 fastapi = FastAPI(title="Log-SideCar Test API", version="0.0.1")
 
-fastapi.add_middleware(LoggingHTTPMiddleware, skip_paths=["/health"])
+fastapi.add_middleware(LoggingHTTPMiddleware)
 
 
 async def handle_value_error(request: Request, exc: ValueError):

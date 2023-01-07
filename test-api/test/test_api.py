@@ -7,6 +7,7 @@ import pytest
 
 pytestmark = pytest.mark.asyncio
 
+
 @pytestmark
 async def test_hello_endpoint(
     client: AsyncClient, db_con: Connection
