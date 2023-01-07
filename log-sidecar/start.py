@@ -8,9 +8,9 @@ from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixe
 from setup_db import setup_db
 from main import main
 
-logging.basicConfig(level=logging.INFO)
+log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
-
 
 max_tries = 60 * 5  # 5 minutes
 wait_seconds = 1
@@ -34,7 +34,7 @@ async def wait_for_db() -> None:
     else:
         user = os.environ.get("LOG_DB_USER")
         password = os.environ.get("LOG_DB_PASSWORD")
-
+    logger.debug(f"Trying to connect with host {host}, user {user}, db {db}")
     try:
         conn = await asyncpg.connect(
             host=host,
