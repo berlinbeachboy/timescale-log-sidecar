@@ -1,6 +1,12 @@
+import os
+import logging
+
 import asyncpg
 from asyncpg import Connection
-import os
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 async def create_access_log_table(con: Connection, table_name: str) -> bool:
@@ -21,7 +27,7 @@ async def create_access_log_table(con: Connection, table_name: str) -> bool:
     PRIMARY KEY(time, trace_id)
     );"""
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
@@ -40,35 +46,36 @@ async def create_application_log_table(con: Connection, table_name: str) -> bool
     PRIMARY KEY(time, trace_id)
     );"""
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
 async def create_access_table_indices(con: Connection, table_name: str) -> bool:
-    stmt = f"""CREATE INDEX ON {table_name} (request_path, trace_id, time DESC) 
-              WHERE request_path IS NOT NULL AND trace_id IS NOT NULL;"""
+    stmt = f"""CREATE INDEX ON {table_name} (request_path, trace_id, time DESC)
+     WHERE request_path IS NOT NULL AND trace_id IS NOT NULL;"""
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
 async def create_application_table_indices(con: Connection, table_name: str) -> bool:
-    stmt = f"""CREATE INDEX ON {table_name} (level, trace_id, time DESC) 
-              WHERE level IS NOT NULL AND trace_id IS NOT NULL;"""
+    stmt = f"""CREATE INDEX ON {table_name} (level, trace_id, time DESC)
+     WHERE level IS NOT NULL AND trace_id IS NOT NULL;"""
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
 async def create_hypertables(con: Connection, table_name: str, partitioning_interval: str) -> bool:
-    stmt = f"SELECT create_hypertable('{table_name}', 'time', if_not_exists => TRUE, chunk_time_interval => INTERVAL '{partitioning_interval}')"
+    stmt = f"SELECT create_hypertable('{table_name}', 'time', if_not_exists => TRUE, " \
+           f"chunk_time_interval => INTERVAL '{partitioning_interval}')"
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
 async def create_user(con: Connection, user: str, password: str) -> bool:
-    stmt = f"""  
+    stmt = f"""
               DO
               $do$
               BEGIN
@@ -83,14 +90,14 @@ async def create_user(con: Connection, user: str, password: str) -> bool:
               $do$;
             """
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
 async def give_user_permission(con: Connection, table_name: str, user: str) -> bool:
     stmt = f"""GRANT INSERT, UPDATE, SELECT ON TABLE {table_name} TO {user};"""
     result = await con.execute(stmt)
-    print(result)
+    logger.info(result)
     return True
 
 
@@ -99,8 +106,8 @@ async def setup_db() -> None:
     This is because it is a fixed env variable for the postgres/timescale container.
     When running, use the LOG_DB variable, so that the actual application can have its own postgres"""
 
-    host = os.environ.get("POSTGRES_HOST")
-    port = os.environ.get("POSTGRES_PORT", 5432)
+    host = os.environ.get("LOG_DB_HOST", "db")
+    port = os.environ.get("LOG_DB_PORT", 5432)
     superuser = os.environ.get("POSTGRES_USER")
     su_password = os.environ.get("POSTGRES_PASSWORD")
     db = os.environ.get("POSTGRES_DB")
@@ -125,6 +132,7 @@ async def setup_db() -> None:
         )
 
     except Exception as e:
+        logger.error("Failed to establish DB connection.")
         raise e
 
     await create_access_log_table(conn, access_log_table)
@@ -141,8 +149,3 @@ async def setup_db() -> None:
     await give_user_permission(conn, application_log_table, log_db_user)
 
     await conn.close()
-
-
-
-
-

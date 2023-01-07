@@ -4,10 +4,11 @@ import json
 import random
 import asyncio
 import logging
+import datetime
 from typing import List
 
 import asyncpg
-import datetime
+
 
 log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
 logging.basicConfig(level=log_level)
@@ -20,6 +21,7 @@ logger.debug(f"FIFO PATH: {FIFO_PATH}")
 logger.debug(f"SENDING INTERVALL : {str(SENDING_INTERVAL)}")
 
 db_timeout = os.environ.get("DB_TIMEOUT", 8.0)
+
 
 class Buffer:
     """ The Buffer with a lock that contains the read lines.
@@ -38,15 +40,18 @@ def prep_access_log(log: dict):
     """This function takes the read log dict and outputs an access_log formatted tuple.
     The tuple is ready for injecting to db with asyncpg"""
 
-    if not "time" in log or not log["time"]:
+    if "time" not in log or not log["time"]:
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
-    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
+    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] \
+        else "unknown"
+    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] \
+        else "unknown"
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
-    remote_ip_address = log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] else "unknown"
+    remote_ip_address = log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] \
+        else "unknown"
     username = log["username"][:49] if "username" in log and log["username"] else "unknown"
     request_method = log["request_method"][:7] if "request_method" in log and log["request_method"] else "unknown"
     request_path = log["request_path"] if "request_path" in log and log["request_path"] else "unknown"
@@ -71,16 +76,19 @@ def prep_access_log(log: dict):
             data
             )
 
+
 def prep_application_log(log: dict):
     """This function takes the read log dict and outputs an application_log formatted tuple.
         The tuple is ready for injecting to db with asyncpg"""
 
-    if not "time" in log or not log["time"]:
+    if "time" not in log or not log["time"]:
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
-    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
+    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] \
+        else "unknown"
+    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] \
+        else "unknown"
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
     level = log["level"] if "level" in log and log["level"] else "unknown"
@@ -102,6 +110,7 @@ def prep_application_log(log: dict):
             data
             )
 
+
 async def send_access_logs(con, access_logs):
     table_name = os.environ.get("ACCESS_LOG_TABLE", 'access_logs')
     await con.executemany(
@@ -113,6 +122,7 @@ async def send_access_logs(con, access_logs):
         access_logs,
         timeout=8.0,
     )
+
 
 async def send_application_logs(con, app_logs):
     table_name = os.environ.get("APPLICATION_LOG_TABLE", 'application_logs')
@@ -128,8 +138,8 @@ async def send_application_logs(con, app_logs):
 
 
 async def send_logs_to_db(logs: List[dict]):
-    host = os.environ.get("POSTGRES_HOST")
-    port = os.environ.get("POSTGRES_PORT", 5432)
+    host = os.environ.get("LOG_DB_HOST")
+    port = os.environ.get("LOG_DB_PORT", 5432)
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
     database = os.environ.get("LOG_DB")
@@ -147,7 +157,7 @@ async def send_logs_to_db(logs: List[dict]):
         access_logs = []
         application_logs = []
         for i in logs:
-            if not "type" in i:
+            if "type" not in i:
                 continue
             if i["type"].lower() == "access":
                 prepped_log = prep_access_log(log=i)
@@ -203,7 +213,7 @@ class PIPE:
         os.set_blocking(self.fifo_file.fileno(), False)
         return self.fifo_file
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, pipe_type, value, traceback):
         if self.fifo_file:
             self.fifo_file.close()
 

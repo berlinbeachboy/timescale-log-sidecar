@@ -1,19 +1,17 @@
 import typing
-
-import anyio
-from starlette.responses import StreamingResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
 import errno
 import json
 import os
 import sys
 import traceback
 from datetime import datetime
+
 from uuid import uuid4
 import logging
-
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
 
 RequestResponseEndpoint = typing.Callable[[Request], typing.Awaitable[Response]]
 DispatchFunction = typing.Callable[[Request, RequestResponseEndpoint], typing.Awaitable[Response]]
@@ -23,91 +21,7 @@ APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "some_app")
 ENV = os.environ.get("ENV", "DEV")
 
 
-class CustomHTTPMiddleware:
-    """This is a custom middleware based on the Starlette BaseHTTPMiddleware
-    The intention of this is to provide a solution for https://github.com/tiangolo/fastapi/issues/4719
-    We use much of the following pull request which at the time of development (May 2022) has not been merged:
-    https://github.com/encode/starlette/pull/1441/files#
-
-    Should be deleted once this is included in starlette (probably v 0.21.0) and this version is pinned by fastapi
-    """
-    def __init__(
-        self,
-        app: ASGIApp,
-        skip_paths: typing.Optional[typing.List[str]] = None,
-        dispatch: DispatchFunction = None,
-    ) -> None:
-        self.app = app
-        self.skip_paths = skip_paths
-        self.dispatch_func = self.dispatch if dispatch is None else dispatch
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        request = Request(scope, receive=receive)
-        path = request.url.path
-
-        if path in self.skip_paths:
-            await self.app(scope, receive, send)
-            return
-
-        call_next_response = None
-        send_stream, recv_stream = anyio.create_memory_object_stream()
-
-        async def call_next(request: Request) -> Response:
-            app_exc: typing.Optional[Exception] = None
-
-            async def coro() -> None:
-                nonlocal app_exc
-
-                async with send_stream:
-                    try:
-                        await self.app(scope, request.receive, send_stream.send)
-                    except Exception as exc:
-                        app_exc = exc
-
-            task_group.start_soon(coro)
-
-            try:
-                message = await recv_stream.receive()
-            except anyio.EndOfStream:
-                if app_exc is not None:
-                    raise app_exc
-                raise RuntimeError("No response returned.")
-
-            assert message["type"] == "http.response.start"
-
-            async def body_stream() -> typing.AsyncGenerator[bytes, None]:
-                async with recv_stream:
-                    async for message in recv_stream:
-                        assert message["type"] == "http.response.body"
-                        yield message.get("body", b"")
-
-            nonlocal call_next_response
-
-            call_next_response = StreamingResponse(status_code=message["status"], content=body_stream())
-            call_next_response.raw_headers = message["headers"]
-            return call_next_response
-
-        async with anyio.create_task_group() as task_group:
-            response = await self.dispatch_func(request, call_next)
-            if call_next_response and response is not call_next_response:
-
-                async def drain_stream():
-                    async with recv_stream:
-                        async for _ in recv_stream:
-                            ...
-
-                task_group.start_soon(drain_stream)
-            await response(scope, receive, send)
-
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        raise NotImplementedError()
-
-
-class LoggingHTTPMiddleware(CustomHTTPMiddleware):
+class LoggingHTTPMiddleware(BaseHTTPMiddleware):
     """(1) Logs all requests (and responses)
     (2) catches all uncaught exceptions and also logs them before returning a 500"""
 
@@ -178,7 +92,7 @@ class LoggingHTTPMiddleware(CustomHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request.state.time_started = datetime.utcnow()
-        request.state.trace_id = uuid4() if not "X-trace-id" in request.headers else request.headers["X-trace-id"]
+        request.state.trace_id = uuid4() if "X-trace-id" not in request.headers else request.headers["X-trace-id"]
         try:
             response: Response = await call_next(request)
         except Exception as e:
@@ -273,7 +187,8 @@ class NamedPipeHandler(logging.StreamHandler):
             os.close(pipe)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception as e:
+            print(str(e))
             self.handleError(record)
 
 
@@ -291,5 +206,3 @@ else:
         logger.setLevel(logging.DEBUG)
 
 logger.addHandler(handler)
-
-

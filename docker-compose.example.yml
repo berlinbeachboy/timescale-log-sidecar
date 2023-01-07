@@ -11,6 +11,3 @@ services:
         - ./.env
       volumes:
         - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
-
-volumes:
-    postgres_data:

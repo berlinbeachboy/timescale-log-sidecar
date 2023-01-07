@@ -28,7 +28,7 @@ services:
 
   db:
     container_name: ts_db
-    image: timescale/timescaledb:2.7.0-pg14
+    image: timescale/timescaledb:2.9.1-pg14
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data/

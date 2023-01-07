@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 max_tries = 60 * 5  # 5 minutes
 wait_seconds = 1
+
+
 @retry(
     stop=stop_after_attempt(max_tries),
     wait=wait_fixed(wait_seconds),
@@ -16,22 +18,23 @@ wait_seconds = 1
     after=after_log(logger, logging.WARN),
 )
 async def init() -> None:
-    host = os.environ.get("POSTGRES_HOST")
-    db = os.environ.get("LOG_DB")
+    host = os.environ.get("LOG_DB_HOST", "db")
+    port = os.environ.get("LOG_DB_PORT", 5432)
 
     # Check if current session is setup_db session in which case the superuser needs to be used
-    is_setup_db = os.environ.get("SETUP_DB")
-    if is_setup_db:
+    if os.environ.get("SETUP_DB", 0):
         user = os.environ.get("POSTGRES_USER")
         password = os.environ.get("POSTGRES_PASSWORD")
+        db = os.environ.get("POSTGRES_DB", "postgres")
     else:
         user = os.environ.get("LOG_DB_USER")
         password = os.environ.get("LOG_DB_PASSWORD")
+        db = os.environ.get("LOG_DB", "logs")
 
     try:
         conn = await asyncpg.connect(
             host=host,
-            port=5432,
+            port=port,
             user=user,
             password=password,
             database=db,

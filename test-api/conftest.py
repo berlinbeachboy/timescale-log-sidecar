@@ -25,8 +25,8 @@ async def client() -> AsyncGenerator:
 
 @pytest.fixture(scope="module")
 async def db_con() -> AsyncGenerator:
-    host = os.environ.get("POSTGRES_HOST")
-    port = os.environ.get("POSTGRES_PORT", 5432)
+    host = os.environ.get("LOG_DB_HOST")
+    port = os.environ.get("LOG_DB_PORT", 5432)
     user = os.environ.get("POSTGRES_USER")
     password = os.environ.get("POSTGRES_PASSWORD")
     database = os.environ.get("POSTGRES_DB")
