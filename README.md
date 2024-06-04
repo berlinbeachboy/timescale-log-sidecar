@@ -6,6 +6,8 @@ A sidecar container collecting access &amp; application logs via a named pipe an
 This application is supposed to run as a sidecar container (on same host / pod) to another application, supposedly an API.
 An example on how to use this is given in the `test-api` folder which also includes tests.
 
+There is a ready-built docker image [here](https://hub.docker.com/repository/docker/phratz/ts-log-sidecar/general).
+
 The application/api whose logs you want to collect, needs to send logs in JSON format to a named FIFO pipe 
 which is specified in the environment variables.
 This container reads the logs and sends them to a Postgres / Timescale using asyncpg.
