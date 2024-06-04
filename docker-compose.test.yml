@@ -2,17 +2,17 @@ version: '3.8'
 services:
 
   log-sidecar:
-      container_name: log-sidecar
-      command: python start.py
-      init: true
-      build:
-        context: ./log-sidecar
-        dockerfile: Dockerfile
-      env_file:
-        - ./.env
-      volumes:
-        - ./log-sidecar/:/log-sidecar
-        - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
+    container_name: log-sidecar
+    command: python start.py
+    init: true
+    build:
+      context: ./log-sidecar
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - ./log-sidecar/:/log-sidecar
+      - "/tmp/namedPipes:/tmp/namedPipes" # for sharing logs
 
   test-api:
     container_name: test-api
@@ -25,11 +25,11 @@ services:
       - ./.env
     volumes:
       - ./test-api/:/test-api
-      - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
+      - "/tmp/namedPipes:/tmp/namedPipes" # for sharing logs
 
   db:
     container_name: postgres_ts_db
-    image: timescale/timescaledb:2.9.1-pg14
+    image: timescale/timescaledb:2.15.1-pg14
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data/

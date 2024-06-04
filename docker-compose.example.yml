@@ -10,4 +10,4 @@ services:
       env_file:
         - ./.env
       volumes:
-        - "${NAMED_PIPE_FOLDER}:${NAMED_PIPE_FOLDER}" # for sharing logs
+        - "/tmp/namedPipes:/tmp/namedPipes" # for sharing logs
