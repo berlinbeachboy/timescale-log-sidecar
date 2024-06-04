@@ -14,7 +14,7 @@ log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
 logging.basicConfig(level=log_level)
 logger = logging.getLogger("sidecar")
 
-FIFO_PATH = os.environ.get("NAMED_PIPE_FOLDER") + "/" + os.environ.get("NAMED_PIPE_FILE")
+FIFO_PATH = os.environ.get("NAMED_PIPE_FOLDER", "/tmp/namedPipes") + "/" + os.environ.get("NAMED_PIPE_FILE", "appLogs")
 SENDING_INTERVAL = int(os.environ.get("SENDING_INTERVAL", 5))
 logger.debug(f"LOG LEVEL set to debug")
 logger.debug(f"FIFO PATH: {FIFO_PATH}")
@@ -115,8 +115,8 @@ async def send_access_logs(con, access_logs):
     table_name = os.environ.get("ACCESS_LOG_TABLE", 'access_logs')
     await con.executemany(
         f"""
-        INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, remote_ip_address, username, request_method, 
-        request_path, response_status, response_size, duration, data)
+        INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, remote_ip_address, 
+        username, request_method, request_path, response_status, response_size, duration, data)
                   VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """,
         access_logs,
@@ -142,7 +142,7 @@ async def send_logs_to_db(logs: List[dict]):
     port = os.environ.get("LOG_DB_PORT", 5432)
     user = os.environ.get("LOG_DB_USER")
     password = os.environ.get("LOG_DB_PASSWORD")
-    database = os.environ.get("LOG_DB")
+    database = os.environ.get("LOG_DB", "logs")
     try:
         con = await asyncpg.connect(
             host=host,

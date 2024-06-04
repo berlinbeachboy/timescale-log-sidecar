@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED 1
 
 # install system dependencies
 RUN apt-get update \
-  && apt-get -y install postgresql-client wget grep \
+  && apt-get -y install wget grep \
   && apt-get clean
 
 # Get and install logging sidecar

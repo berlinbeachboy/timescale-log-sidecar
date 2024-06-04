@@ -51,7 +51,7 @@ async def wait_for_db() -> None:
         raise e
 
     else:
-        logger.debug("Initial SELECT successful.")
+        logger.info("Initial DB SELECT successful.")
         await conn.close()
 
 
