@@ -110,7 +110,7 @@ async def setup_db() -> None:
     port = os.environ.get("LOG_DB_PORT", 5432)
     superuser = os.environ.get("POSTGRES_USER")
     su_password = os.environ.get("POSTGRES_PASSWORD")
-    db = os.environ.get("LOG_DB", "logs")
+    db = os.environ.get("LOG_DB_NAME", "logs")
 
     log_db_user = os.environ.get("LOG_DB_USER")
     log_db_password = os.environ.get("LOG_DB_PASSWORD")

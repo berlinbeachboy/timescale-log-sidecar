@@ -12,6 +12,12 @@ The application/api whose logs you want to collect, needs to send logs in JSON f
 which is specified in the environment variables.
 This container reads the logs and sends them to a Postgres / Timescale using asyncpg.
 
+### NOTE:
+Right now this is just a pipe without any persistence.
+If the DB is down or if a query fails, the logs are lost.
+Persistence might be added in the future.
+
+
 There are two tables this can send data to:
 
 ### access_logs
@@ -63,7 +69,6 @@ Once it's setup you should only use the `LOG_DB_USER` user
 which does not have all privileges.
 
 The `log-sidecar/start.py` would also be the entrypoint for any Docker container.
-Currently, working on getting this up on Docker hub.
 
 ## Testing 
 

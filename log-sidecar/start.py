@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+from pathlib import Path
 
 import asyncpg
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
@@ -8,12 +9,14 @@ from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixe
 from setup_db import setup_db
 from main import main
 
+PIPEDIR = Path("/tmp/namedPipes")
+
 log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
 logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
 max_tries = 60 * 5  # 5 minutes
-wait_seconds = 1
+wait_seconds = 2
 
 
 @retry(
@@ -25,7 +28,7 @@ wait_seconds = 1
 async def wait_for_db() -> None:
     host = os.environ.get("LOG_DB_HOST", "db")
     port = os.environ.get("LOG_DB_PORT", 5432)
-    db = os.environ.get("LOG_DB", "logs")
+    db = os.environ.get("LOG_DB_NAME", "logs")
 
     # Check if current session is setup_db session in which case the superuser needs to be used
     if os.environ.get("SETUP_DB", 0):
@@ -35,8 +38,9 @@ async def wait_for_db() -> None:
         user = os.environ.get("LOG_DB_USER")
         password = os.environ.get("LOG_DB_PASSWORD")
     logger.debug(f"Trying to connect with host {host}, user {user}, db {db}")
+    conn = None
     try:
-        conn = await asyncpg.connect(
+        conn: Connection = await asyncpg.connect(
             host=host,
             port=port,
             user=user,
@@ -46,23 +50,25 @@ async def wait_for_db() -> None:
             command_timeout=8.0,
         )
         await conn.execute("SELECT 1")
+        logger.info("DB connection initialized.")
     except Exception as e:
         logger.error(e)
         raise e
-
-    else:
-        logger.info("Initial DB SELECT successful.")
-        await conn.close()
+    finally:
+        if conn:
+            await conn.close()
 
 
 async def pre_start():
     await wait_for_db()  # wait for db
     if os.environ.get("SETUP_DB", "0") == "1":
-        logger.info("SETUP_DB env variable is set. Setting up DB.")
+        logger.warning("SETUP_DB env variable is set. Setting up DB.")
         await setup_db()
 
 
 async def start():
+    PIPEDIR.mkdir(parents=True, exist_ok=True)
+    # os.chmod(PIPEDIR, 0o1777)
     await pre_start()
     await main()
 

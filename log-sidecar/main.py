@@ -9,34 +9,45 @@ from typing import List
 
 import asyncpg
 
-
 log_level = os.environ.get("SIDECAR_LOG_LEVEL", logging.WARN)
 logging.basicConfig(level=log_level)
 logger = logging.getLogger("sidecar")
 
 FIFO_PATH = os.environ.get("NAMED_PIPE_FOLDER", "/tmp/namedPipes") + "/" + os.environ.get("NAMED_PIPE_FILE", "appLogs")
-SENDING_INTERVAL = int(os.environ.get("SENDING_INTERVAL", 5))
-logger.debug(f"LOG LEVEL set to debug")
-logger.debug(f"FIFO PATH: {FIFO_PATH}")
-logger.debug(f"SENDING INTERVALL : {str(SENDING_INTERVAL)}")
+SENDING_INTERVAL = int(os.environ.get("LOG_SENDING_INTERVAL", 5))
 
-db_timeout = os.environ.get("DB_TIMEOUT", 8.0)
+DB_TIMEOUT = 8.0
+logger.debug("LOG LEVEL set to debug")
+logger.debug(f"FIFO PATH: {FIFO_PATH}")
+logger.debug(f"SENDING INTERVAL : {str(SENDING_INTERVAL)}")
+
+host = os.environ.get("LOG_DB_HOST", "timescale_db")
+port = os.environ.get("LOG_DB_PORT", 5432)
+user = os.environ.get("LOG_DB_USER", "log_api_user")
+database = os.environ.get("LOG_DB_NAME", "logs")
+password = os.environ.get("LOG_DB_PASSWORD")
+if not password:
+    raise Exception("No password set for log_api_user. Please set via the LOG_DB_PASSWORD env variable.")
 
 
 class Buffer:
-    """ The Buffer with a lock that contains the read lines.
-    """
+    """The Buffer with a lock that contains the read lines."""
+
     def __init__(self, interval=5):
         self.interval = interval
         self.lock = asyncio.Semaphore(value=1)
         self.buf = []
+
+    async def add(self, log_in: dict):
+        async with self.lock:
+            self.buf.append(log_in)
 
     def send_logs_every(self):
         jitter = random.randint(1, 9) * 0.1
         return self.interval + jitter
 
 
-def prep_access_log(log: dict):
+def prep_access_log(log: dict) -> tuple:
     """This function takes the read log dict and outputs an access_log formatted tuple.
     The tuple is ready for injecting to db with asyncpg"""
 
@@ -44,14 +55,17 @@ def prep_access_log(log: dict):
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] \
-        else "unknown"
-    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] \
-        else "unknown"
+    application_name = (
+        log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
+    )
+    environment_name = (
+        log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
+    )
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
-    remote_ip_address = log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] \
-        else "unknown"
+    remote_ip_address = (
+        log["remote_ip_address"] if "remote_ip_address" in log and log["remote_ip_address"] else "unknown"
+    )
     username = log["username"][:49] if "username" in log and log["username"] else "unknown"
     request_method = log["request_method"][:7] if "request_method" in log and log["request_method"] else "unknown"
     request_path = log["request_path"] if "request_path" in log and log["request_path"] else "unknown"
@@ -61,34 +75,37 @@ def prep_access_log(log: dict):
     data = log.get("data")
     if data:
         data = json.dumps(data)
-    return (time,
-            application_name,
-            environment_name,
-            trace_id,
-            host_ip,
-            remote_ip_address,
-            username,
-            request_method,
-            request_path,
-            response_status,
-            response_size,
-            duration,
-            data
-            )
+    return (
+        time,
+        application_name,
+        environment_name,
+        trace_id,
+        host_ip,
+        remote_ip_address,
+        username,
+        request_method,
+        request_path,
+        response_status,
+        response_size,
+        duration,
+        data,
+    )
 
 
-def prep_application_log(log: dict):
+def prep_application_log(log: dict) -> tuple:
     """This function takes the read log dict and outputs an application_log formatted tuple.
-        The tuple is ready for injecting to db with asyncpg"""
+    The tuple is ready for injecting to db with asyncpg"""
 
     if "time" not in log or not log["time"]:
         time = datetime.datetime.utcnow()
     else:
         time = datetime.datetime.strptime(log["time"], "%Y-%m-%d %H:%M:%S.%f")
-    application_name = log["application_name"][:20] if "application_name" in log and log["application_name"] \
-        else "unknown"
-    environment_name = log["environment_name"][:10] if "environment_name" in log and log["environment_name"] \
-        else "unknown"
+    application_name = (
+        log["application_name"][:20] if "application_name" in log and log["application_name"] else "unknown"
+    )
+    environment_name = (
+        log["environment_name"][:10] if "environment_name" in log and log["environment_name"] else "unknown"
+    )
     trace_id = log["trace_id"] if "trace_id" in log and log["trace_id"] else "unknown"
     host_ip = log["host_ip"] if "host_ip" in log and log["host_ip"] else "unknown"
     level = log["level"] if "level" in log and log["level"] else "unknown"
@@ -98,34 +115,25 @@ def prep_application_log(log: dict):
     data = log.get("data")
     if data:
         data = json.dumps(data)
-    return (time,
-            application_name,
-            environment_name,
-            trace_id,
-            host_ip,
-            username,
-            level,
-            file_path,
-            message,
-            data
-            )
+    return (time, application_name, environment_name, trace_id, host_ip, username, level, file_path, message, data)
 
 
-async def send_access_logs(con, access_logs):
-    table_name = os.environ.get("ACCESS_LOG_TABLE", 'access_logs')
+async def send_access_logs(con, access_logs: list[tuple]):
+    table_name = os.environ.get("ACCESS_LOG_TABLE", "access_logs")
     await con.executemany(
         f"""
-        INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, remote_ip_address, 
-        username, request_method, request_path, response_status, response_size, duration, data)
+        INSERT INTO {table_name}(
+        time, application_name, environment_name, trace_id, host_ip, remote_ip_address, username, request_method, 
+        request_path, response_status, response_size, duration, data)
                   VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """,
         access_logs,
-        timeout=8.0,
+        timeout=DB_TIMEOUT,
     )
 
 
-async def send_application_logs(con, app_logs):
-    table_name = os.environ.get("APPLICATION_LOG_TABLE", 'application_logs')
+async def send_application_logs(con, app_logs: list[tuple]):
+    table_name = os.environ.get("APPLICATION_LOG_TABLE", "application_logs")
     await con.executemany(
         f"""
         INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, username, level, 
@@ -133,75 +141,85 @@ async def send_application_logs(con, app_logs):
                   VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         """,
         app_logs,
-        timeout=8.0,
+        timeout=DB_TIMEOUT,
     )
 
 
-async def send_logs_to_db(logs: List[dict]):
-    host = os.environ.get("LOG_DB_HOST")
-    port = os.environ.get("LOG_DB_PORT", 5432)
-    user = os.environ.get("LOG_DB_USER")
-    password = os.environ.get("LOG_DB_PASSWORD")
-    database = os.environ.get("LOG_DB", "logs")
+async def send_logs_to_db(logs: list[dict]) -> None:
+    access_logs = []
+    application_logs = []
+
+    for i in logs:
+        if "type" not in i:
+            continue
+        if i["type"].lower() == "access":
+            prepped_log = prep_access_log(log=i)
+            logger.debug(prepped_log)
+            access_logs.append(prepped_log)
+        elif i["type"].lower() == "application":
+            prepped_log = prep_application_log(log=i)
+            logger.debug(prepped_log)
+            application_logs.append(prepped_log)
+        else:
+            logger.info("Cannot send logs other than type access or application")
+    if len(access_logs) == 0 and len(application_logs) == 0:
+        return
+
+    con = await asyncpg.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database,
+        timeout=DB_TIMEOUT,
+        command_timeout=DB_TIMEOUT,
+    )
+    logger.debug(f"Connected with host {host}, user {user}, db {database}")
     try:
-        con = await asyncpg.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database,
-            timeout=6.0,
-            command_timeout=8.0,
-        )
-        logger.debug(f"Connected with host {host}, user {user}, db {database}")
-        access_logs = []
-        application_logs = []
-        for i in logs:
-            if "type" not in i:
-                continue
-            if i["type"].lower() == "access":
-                prepped_log = prep_access_log(log=i)
-                logger.debug(prepped_log)
-                access_logs.append(prepped_log)
-            elif i["type"].lower() == "application":
-                prepped_log = prep_application_log(log=i)
-                logger.debug(prepped_log)
-                application_logs.append(prepped_log)
-            else:
-                logger.info("Cannot send logs other than type access or application")
-        await send_access_logs(con, access_logs)
-        logger.debug(f"sent {len(access_logs)} access_logs")
-        await send_application_logs(con, application_logs)
-        logger.debug(f"sent {len(application_logs)} application_logs")
-        await con.close()
+        if len(access_logs) > 0:
+            await send_access_logs(con, access_logs)
+            logger.debug(f"sent {len(access_logs)} access_logs")
+        if len(application_logs) > 0:
+            await send_application_logs(con, application_logs)
+            logger.debug(f"sent {len(application_logs)} application_logs")
     except Exception as e:
         logger.error(e)
+    finally:
+        await con.close()
 
 
-async def schedule_log_sending(buffered_logs):
+async def schedule_log_sending(buffered_logs: Buffer):
+    """schedules sending of logs to db every SENDING_INTERVAL seconds."""
     while True:
         async with buffered_logs.lock:
             if len(buffered_logs.buf) > 0:
-                await send_logs_to_db(logs=buffered_logs.buf)
+                try:
+                    await send_logs_to_db(logs=buffered_logs.buf)
+                except Exception as e:
+                    logger.error(e)
+                # logs are lost if they cannot be sent
                 buffered_logs.buf = []
         await asyncio.sleep(buffered_logs.send_logs_every())
 
 
 def open_fifo(fifo_file):
     try:
-        os.mkfifo(fifo_file, mode=0o777)
+        os.mkfifo(fifo_file)
+        os.chmod(fifo_file, 0o777)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise e
+    logger.info(f"Created new pipe: {fifo_file}")
     return fifo_file
 
 
 class PIPE:
-    """ The Pipe / Context Manager to access the fifo in sync and async manner.
+    """The Pipe / Context Manager to access the fifo in sync and async manner.
     Use like:
       async with PIPE() as pipe:
         data = pipe.readline()
     """
+
     fifo_file = None
 
     def __enter__(self):
@@ -231,7 +249,7 @@ class PIPE:
             await asyncio.sleep(-1, result=self.fifo_file.close())
 
 
-async def collect_logs(buffered_logs):
+async def collect_logs(buffered_logs: Buffer):
     """Function that keeps running and collects logs from the named pipe"""
     async with PIPE() as pipe:
         while True:
@@ -240,13 +258,15 @@ async def collect_logs(buffered_logs):
                 if len(data) == 0:
                     await asyncio.sleep(1)
                     continue
-                log = json.loads(data)
+                try:
+                    log = json.loads(data)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Cannot decode log: {e}")
+                    continue
                 if log:
                     logger.debug("Collected a log")
-                    # buffer log events in memory
-                    async with buffered_logs.lock:
-                        buffered_logs.buf.append(log)
-            except OSError as e:
+                    await buffered_logs.add(log)
+            except Exception as e:
                 logger.error(e)
 
 
@@ -255,5 +275,5 @@ async def main():
     return await asyncio.gather(collect_logs(buffered_logs), schedule_log_sending(buffered_logs))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

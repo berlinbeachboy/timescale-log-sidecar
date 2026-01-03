@@ -1,2 +1,0 @@
-asyncpg==0.29.0
-tenacity==8.3.0

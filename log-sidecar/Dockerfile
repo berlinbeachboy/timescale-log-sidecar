@@ -1,25 +1,28 @@
-FROM python:3.10-slim
+ARG PYTHON_VERSION=3.13
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+FROM python:${PYTHON_VERSION}-slim
 
-# install system dependencies
-RUN apt-get update \
-  && apt-get -y install wget grep \
-  && apt-get clean
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Create a user cap-on
+RUN addgroup --system --gid 10001 cap-on \
+ && adduser  --system --uid 10001 --ingroup cap-on cap-on
 
 # Get and install logging sidecar
 RUN mkdir -p /log-sidecar
-
 WORKDIR /log-sidecar/
 
 # install python dependencies
-COPY requirements.txt /log-sidecar/
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install asyncpg==0.31.0 tenacity==8.3.0
+
 
 COPY . /log-sidecar
+COPY --chown=cap-on:cap-on . /log-sidecar
+
+USER cap-on
 
 ENV PYTHONPATH=/log-sidecar
 
-CMD [ "python", "./start.py"]
+CMD ["python", "start.py"]

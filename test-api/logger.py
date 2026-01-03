@@ -93,8 +93,13 @@ class LoggingHTTPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request.state.time_started = datetime.utcnow()
         request.state.trace_id = uuid4() if "X-trace-id" not in request.headers else request.headers["X-trace-id"]
+        response: Response = Response(
+            f"Internal server error. \n Trace_ID: {request.state.trace_id}",
+            status_code=500,
+        )
         try:
             response: Response = await call_next(request)
+            return response
         except Exception as e:
             username = request.state.username if hasattr(request.state, "username") else None
             logger.error(
@@ -102,15 +107,11 @@ class LoggingHTTPMiddleware(BaseHTTPMiddleware):
                 {"trace_id": request.state.trace_id, "username": username},
                 exc_info=True,
             )
-            response: Response = Response(
-                f"Internal server error. \n Trace_ID: {request.state.trace_id}",
-                status_code=500,
-            )
+            return response
         finally:
             username = request.state.username if hasattr(request.state, "username") else None
             duration = (datetime.utcnow() - request.state.time_started).total_seconds() * 1000
             await self.log_request_response(request, response, duration=duration, username=username)
-            return response
 
 
 def open_fifo(fifo_file):
