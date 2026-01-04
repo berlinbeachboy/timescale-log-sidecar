@@ -3,7 +3,7 @@ from logger import LoggingHTTPMiddleware, logger
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-fastapi = FastAPI(title="Log-SideCar Test API", version="0.0.1")
+fastapi = FastAPI(title="Log-SideCar Test API", version="0.1.0")
 
 fastapi.add_middleware(LoggingHTTPMiddleware)
 

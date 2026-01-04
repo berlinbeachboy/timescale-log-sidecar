@@ -60,7 +60,7 @@ class LoggingHTTPMiddleware(BaseHTTPMiddleware):
         trace_id = uuid4() if not request.state.trace_id else request.state.trace_id
         time = request.state.time_started if request.state.time_started else datetime.utcnow()
 
-        if ENV in ["STAG", "PROD"]:
+        if ENV in ["STAG", "PROD", "TEST"]:
             try:
                 log = self.format_access_log_dict(
                     remote_ip_address=request.client.host,
@@ -88,7 +88,7 @@ class LoggingHTTPMiddleware(BaseHTTPMiddleware):
         elif ENV in ["TEST"]:
             pass
         else:
-            print(f"{request.method} {request.url.path} from user {username} and responded with {response.status_code}")
+            logger.info(f"{request.method} {request.url.path} from {username}, responded with {response.status_code}")
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request.state.time_started = datetime.utcnow()
@@ -195,15 +195,12 @@ class NamedPipeHandler(logging.StreamHandler):
 
 logger = logging.getLogger("test-app")
 
-if ENV in ["STAG", "PROD"]:
+if ENV in ["STAG", "PROD", "TEST"]:
     logger.setLevel(logging.INFO)
     handler = NamedPipeHandler()
     handler.setFormatter(DictFormatter())
 else:
     handler = logging.StreamHandler(sys.stdout)
-    if ENV in ["TEST"]:
-        logger.setLevel(logging.WARN)
-    else:
-        logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
 logger.addHandler(handler)

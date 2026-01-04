@@ -76,7 +76,7 @@ The `log-sidecar/start.py` would also be the entrypoint for any Docker container
 Please ensure you're using this locally/in DEV only.
 
 ```bash
-docker-compose -f docker-compose.test.yml up --build
+docker compose -f docker-compose.test.yml up --build
 ```
 will start your testing environment.
 Make sure you setup the DB when starting the first time by setting `SETUP_DB` to 1 in your `.env` file.

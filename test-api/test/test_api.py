@@ -12,7 +12,6 @@ pytestmark = pytest.mark.asyncio
 async def test_hello_endpoint(
     client: AsyncClient, db_con: Connection
 ) -> None:
-    """ WARNING: AFTER RUNNING TESTS THE DB WILL BE TRUNCATED!!! """
     r = await client.get(
         f"/log_hello",
     )
@@ -21,19 +20,35 @@ async def test_hello_endpoint(
     await asyncio.sleep(6)
     acc_table_name = os.environ.get("ACCESS_LOG_TABLE", 'access_logs')
     app_table_name = os.environ.get("APPLICATION_LOG_TABLE", 'application_logs')
-    access_count = await db_con.fetchval(f"SELECT count(*) FROM {acc_table_name};")
-    application_count = await db_con.fetchval(f"SELECT count(*) FROM {app_table_name};")
+    access_count = await db_con.fetchval(f"""
+        SELECT count(*) FROM {acc_table_name}
+            where time > now() - interval '10 seconds' 
+            and response_status = 200;
+    ;
+    """)
+    application_count = await db_con.fetchval(f"""
+        SELECT count(*) FROM {app_table_name} 
+            where level = 'INFO' and message = 'Hello World'
+            and time > now() - interval '10 seconds';
+    """)
 
-    assert access_count == application_count == 1
+    assert access_count == 1
+    assert application_count == 1
 
-    r = await client.get(
-        f"/log_error",
-    )
+    r = await client.get(f"/log_error")
     assert 400 <= r.status_code < 500
 
     await asyncio.sleep(6)
-    access_count = await db_con.fetchval(f"SELECT count(*) FROM {acc_table_name};")
-    application_count = await db_con.fetchval(f"SELECT count(*) FROM {app_table_name};")
-    assert access_count == application_count == 2
-    error_count = await db_con.fetchval(f"SELECT count(*) FROM {app_table_name} WHERE level = 'ERROR';")
-    assert error_count == 1
+    access_count = await db_con.fetchval(f"""
+            SELECT count(*) FROM {acc_table_name}
+                where time > now() - interval '10 seconds' 
+                and response_status = 400;
+        ;
+        """)
+    application_count = await db_con.fetchval(f"""
+            SELECT count(*) FROM {app_table_name} 
+                where level = 'ERROR'
+                and time > now() - interval '10 seconds';
+        """)
+    assert access_count == 1
+    assert application_count == 1
