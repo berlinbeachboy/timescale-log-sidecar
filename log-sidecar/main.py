@@ -344,10 +344,7 @@ async def collect_logs(buffered_logs: Buffer):
 
 async def main():
     buffered_logs = Buffer(SENDING_INTERVAL)
-    try:
-        v = Path.open("./.version", mode="r+").readline()
-    except Exception:
-        v = "unknown Version"
+    v = os.getenv("VERSION", "unknown Version")
     logger.info(f"Starting Log Sidecar, version {v}")
     return await asyncio.gather(collect_logs(buffered_logs), schedule_log_sending(buffered_logs))
 
