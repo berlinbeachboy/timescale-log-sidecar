@@ -40,7 +40,7 @@ async def wait_for_db() -> None:
     logger.debug(f"Trying to connect with host {host}, user {user}, db {db}")
     conn = None
     try:
-        conn: Connection = await asyncpg.connect(
+        conn = await asyncpg.connect(
             host=host,
             port=port,
             user=user,
@@ -68,7 +68,6 @@ async def pre_start():
 
 async def start():
     PIPEDIR.mkdir(parents=True, exist_ok=True)
-    # os.chmod(PIPEDIR, 0o1777)
     await pre_start()
     await main()
 

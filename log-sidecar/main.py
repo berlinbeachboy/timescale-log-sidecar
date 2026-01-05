@@ -7,6 +7,7 @@ import asyncio
 import logging
 from datetime import datetime
 from collections import deque
+from pathlib import Path
 
 import asyncpg
 
@@ -85,7 +86,8 @@ def prep_access_log(log: dict) -> tuple | None:
         username = log["username"][:49] if "username" in log and log["username"] else "unknown"
         request_method = log["request_method"][:7] if "request_method" in log and log["request_method"] else "unknown"
         request_path = log["request_path"] if "request_path" in log and log["request_path"] else "unknown"
-        response_status = int(log["response_status"]) if "response_status" in log and log["response_status"] else "unknown"
+        response_status = int(log["response_status"]) if "response_status" in log and log["response_status"] \
+            else "unknown"
         response_size = int(log["response_size"]) if "response_size" in log and log["response_size"] else 0
         duration = float(log["duration"]) if "duration" in log and log["duration"] else 0
         data = log.get("data")
@@ -154,8 +156,8 @@ async def send_access_logs(con, access_logs: list[tuple]):
     await con.executemany(
         f"""
         INSERT INTO {table_name}(
-        time, application_name, environment_name, trace_id, host_ip, remote_ip_address, username, request_method, 
-        request_path, response_status, response_size, duration, data)
+        time, application_name, environment_name, trace_id, host_ip, remote_ip_address, username, request_method,
+         request_path, response_status, response_size, duration, data)
                   VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         """,
         access_logs,
@@ -167,8 +169,8 @@ async def send_application_logs(con, app_logs: list[tuple]):
     table_name = os.environ.get("APPLICATION_LOG_TABLE", "application_logs")
     await con.executemany(
         f"""
-        INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, username, level, 
-        file_path, message, data)
+        INSERT INTO {table_name}(time, application_name, environment_name, trace_id, host_ip, username, level,
+         file_path, message, data)
                   VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         """,
         app_logs,
@@ -342,6 +344,11 @@ async def collect_logs(buffered_logs: Buffer):
 
 async def main():
     buffered_logs = Buffer(SENDING_INTERVAL)
+    try:
+        v = Path.open("./.version", mode="r+").readline()
+    except Exception:
+        v = "unknown Version"
+    logger.info(f"Starting Log Sidecar, version {v}")
     return await asyncio.gather(collect_logs(buffered_logs), schedule_log_sending(buffered_logs))
 
 

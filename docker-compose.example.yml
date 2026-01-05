@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   log-sidecar:
       container_name: log-sidecar

@@ -19,6 +19,7 @@ RUN pip install asyncpg==0.31.0 tenacity==8.3.0
 
 
 COPY . /log-sidecar
+COPY ../.version /log-sidecar
 COPY --chown=cap-on:cap-on . /log-sidecar
 
 USER cap-on
